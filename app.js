@@ -205,18 +205,18 @@ function setStreamingUI(streaming) {
     videoPlaceholder.classList.add('hidden');
     liveBadge.classList.remove('hidden');
     iceStateBadge.classList.remove('hidden');
-    btnSwitchCamera.classList.remove('hidden');
-    btnMuteAudio.classList.remove('hidden');
-    btnScreenshot.classList.remove('hidden');
+    btnSwitchCamera.disabled = false;
+    btnMuteAudio.disabled = false;
+    btnScreenshot.disabled = false;
     btnDisconnect.classList.remove('hidden');
   } else {
     streamDot.className = 'w-2.5 h-2.5 rounded-full bg-slate-500';
     streamLabel.textContent = 'Standby (Waiting for Camera)';
     liveBadge.classList.add('hidden');
     iceStateBadge.classList.add('hidden');
-    btnSwitchCamera.classList.add('hidden');
-    btnMuteAudio.classList.add('hidden');
-    btnScreenshot.classList.add('hidden');
+    btnSwitchCamera.disabled = true;
+    btnMuteAudio.disabled = true;
+    btnScreenshot.disabled = true;
     btnDisconnect.classList.add('hidden');
   }
 }
