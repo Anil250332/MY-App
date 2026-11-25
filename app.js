@@ -218,13 +218,33 @@ function updateIceState(state) {
 }
 
 // ── Connect to Signaling Server ────────────────
-function connectSignaling() {
+function loadSocketIoFallback(serverUrl) {
+  return new Promise((resolve, reject) => {
+    if (typeof io !== 'undefined') return resolve();
+    const s = document.createElement('script');
+    s.src = `${serverUrl}/socket.io/socket.io.js`;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Failed to load Socket.IO client from server'));
+    document.head.appendChild(s);
+  });
+}
+
+async function connectSignaling() {
   if (!authToken) {
     showLoginGate('Please login first.');
     return;
   }
   const url = serverUrlInput.value.trim().replace(/\/+$/, '');
   if (!url) return;
+
+  if (typeof io === 'undefined') {
+    try {
+      await loadSocketIoFallback(url);
+    } catch (err) {
+      log(err.message, 'error');
+      return;
+    }
+  }
 
   if (socket) { socket.disconnect(); socket = null; }
   log(`Connecting to signaling server: ${url}...`);
