@@ -404,6 +404,9 @@ async function initWebRtc(targetDeviceId, sessionId, isInitiator = true) {
 
 function teardownPeer(resetUI = true) {
   if (peerConnection) {
+    peerConnection.onicecandidate = null;
+    peerConnection.oniceconnectionstatechange = null;
+    peerConnection.ontrack = null;
     peerConnection.close();
     peerConnection = null;
   }
