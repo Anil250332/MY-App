@@ -51,6 +51,7 @@ const btnStopStream   = document.getElementById('btnStopStream');
 const btnDisconnect   = document.getElementById('btnDisconnect');
 const btnRefresh      = document.getElementById('btnRefresh');
 const btnMuteAudio    = document.getElementById('btnMuteAudio');
+const btnSwitchCamera = document.getElementById('btnSwitchCamera');
 const btnFullscreen   = document.getElementById('btnFullscreen');
 const btnScreenshot   = document.getElementById('btnScreenshot');
 const connBadge       = document.getElementById('connBadge');
@@ -194,6 +195,7 @@ function setStreamingUI(streaming) {
     videoPlaceholder.classList.add('hidden');
     liveBadge.classList.remove('hidden');
     iceStateBadge.classList.remove('hidden');
+    btnSwitchCamera.classList.remove('hidden');
     btnMuteAudio.classList.remove('hidden');
     btnScreenshot.classList.remove('hidden');
     btnDisconnect.classList.remove('hidden');
@@ -204,6 +206,7 @@ function setStreamingUI(streaming) {
     streamLabel.textContent = 'No Camera Stream';
     liveBadge.classList.add('hidden');
     iceStateBadge.classList.add('hidden');
+    btnSwitchCamera.classList.add('hidden');
     btnMuteAudio.classList.add('hidden');
     btnScreenshot.classList.add('hidden');
     btnDisconnect.classList.add('hidden');
@@ -572,6 +575,13 @@ btnScreenshot.addEventListener('click', () => {
   link.href = canvas.toDataURL('image/png');
   link.click();
   log('Screenshot saved', 'success');
+});
+
+// ── Switch Camera (Front <-> Back) ─────────────
+btnSwitchCamera.addEventListener('click', () => {
+  if (!currentSession || !socket || !socket.connected) return;
+  socket.emit('switch-camera', { targetDeviceId: currentSession.cameraDeviceId });
+  log('🔄 Switching camera (Front ↔ Back)...', 'stream');
 });
 
 // ── Audio Toggle ───────────────────────────────
