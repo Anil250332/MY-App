@@ -353,6 +353,10 @@ async function connectSignaling() {
     log(`Camera device disconnected (${data.deviceId})`, 'warn');
     teardownPeer();
   });
+
+  socket.on('devices-updated', () => {
+    fetchDevices(!isStreaming);
+  });
 }
 
 // ── WebRTC Peer Connection ─────────────────────
@@ -435,7 +439,14 @@ function teardownPeer(resetUI = true) {
 // ── Request Stream ─────────────────────────────
 function requestStream(cameraDeviceId) {
   if (!socket || !socket.connected) return;
-  log(`Auto-connecting to camera: ${cameraDeviceId}`, 'info');
+  if (currentSession && currentSession.cameraDeviceId !== cameraDeviceId) {
+    socket.emit('end-stream', {
+      sessionId: currentSession.sessionId,
+      targetDeviceId: currentSession.cameraDeviceId
+    });
+    teardownPeer();
+  }
+  log(`Connecting to camera: ${cameraDeviceId}`, 'info');
   placeholderText.textContent = 'Camera connect ho raha hai...';
   videoPlaceholder.classList.remove('hidden');
 
@@ -479,6 +490,33 @@ async function fetchDevices(autoConnect = false) {
   }
 }
 
+async function deleteDevice(deviceId) {
+  const url = serverUrlInput.value.trim().replace(/\/+$/, '');
+  if (!url || !authToken) return;
+  try {
+    if (currentSession && currentSession.cameraDeviceId === deviceId) {
+      if (socket && socket.connected) {
+        socket.emit('end-stream', { sessionId: currentSession.sessionId, targetDeviceId: deviceId });
+      }
+      teardownPeer();
+    }
+    const res = await fetch(`${url}/api/devices/${encodeURIComponent(deviceId)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${authToken}` }
+    });
+    if (res.status === 401) { logout(); return; }
+    const data = await res.json();
+    if (data.success) {
+      log(`Deleted device: ${deviceId}`, 'warn');
+      fetchDevices(false);
+    } else {
+      log(`Delete failed: ${data.message}`, 'error');
+    }
+  } catch (err) {
+    log(`Delete error: ${err.message}`, 'error');
+  }
+}
+
 function renderDevices(items) {
   if (!items.length) {
     deviceListEl.innerHTML = '<div class="text-xs text-slate-500 text-center py-3">No camera devices registered yet.</div>';
@@ -489,26 +527,39 @@ function renderDevices(items) {
     const dev = item.device || item;
     const isOnline = dev.status === 'online' || dev.status === 'streaming';
     const card = document.createElement('div');
-    card.className = 'bg-slate-800/70 rounded-xl p-3 flex items-center justify-between border border-slate-700/50';
+    card.className = 'bg-slate-800/70 rounded-xl p-3 flex items-center justify-between gap-2 border border-slate-700/50';
     card.innerHTML = `
-      <div class="flex items-center gap-2">
-        <span class="w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-slate-500'}"></span>
-        <div>
-          <div class="text-xs font-semibold text-white">${dev.name || 'Camera Device'}</div>
-          <div class="text-[10px] text-slate-400 font-mono">${dev.status?.toUpperCase()}</div>
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="w-2 h-2 rounded-full flex-shrink-0 ${isOnline ? 'bg-emerald-500' : 'bg-slate-500'}"></span>
+        <div class="min-w-0">
+          <div class="text-xs font-semibold text-white truncate">${dev.name || 'Camera Device'}</div>
+          <div class="text-[10px] text-slate-400 font-mono truncate">${dev.id} • ${dev.status?.toUpperCase()}</div>
         </div>
       </div>
-      <button class="btn-dev text-xs bg-blue-600 text-white px-2.5 py-1 rounded-lg font-semibold"
-        data-id="${dev.id}" ${!isOnline ? 'disabled style="opacity:.4"' : ''}>
-        Connect
-      </button>`;
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <button class="btn-dev text-xs bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 rounded-lg font-semibold"
+          data-id="${dev.id}" ${!isOnline ? 'disabled style="opacity:.4"' : ''}>
+          Connect
+        </button>
+        <button class="btn-del-dev text-xs bg-red-900/80 hover:bg-red-700 text-red-200 px-2 py-1 rounded-lg font-semibold"
+          data-id="${dev.id}" title="Delete device">
+          🗑️
+        </button>
+      </div>`;
     deviceListEl.appendChild(card);
   });
 
   document.querySelectorAll('.btn-dev').forEach(btn => {
     btn.addEventListener('click', e => {
-      const devId = e.target.getAttribute('data-id');
+      const devId = e.currentTarget.getAttribute('data-id');
       requestStream(devId);
+    });
+  });
+
+  document.querySelectorAll('.btn-del-dev').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const devId = e.currentTarget.getAttribute('data-id');
+      deleteDevice(devId);
     });
   });
 }
