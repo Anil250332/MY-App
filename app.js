@@ -9,6 +9,7 @@ const STORAGE_TOKEN_KEY = 'rs_auth_token';
 const STORAGE_EMAIL_KEY = 'rs_auth_email';
 const STORAGE_SERVER_KEY = 'rs_server_url';
 const STORAGE_VIEWER_ID_KEY = 'rs_viewer_device_id';
+const STORAGE_PAIRING_CODE_KEY = 'rs_pairing_code';
 
 // ── State ──────────────────────────────────────
 let authToken       = localStorage.getItem(STORAGE_TOKEN_KEY) || '';
@@ -103,12 +104,27 @@ function showDashboard() {
 }
 
 function logout() {
+  if (currentSession && socket && socket.connected) {
+    socket.emit('end-stream', {
+      sessionId: currentSession.sessionId,
+      targetDeviceId: currentSession.cameraDeviceId
+    });
+  }
   authToken = '';
   authEmail = '';
   localStorage.removeItem(STORAGE_TOKEN_KEY);
   localStorage.removeItem(STORAGE_EMAIL_KEY);
   showLoginGate();
 }
+
+window.addEventListener('beforeunload', () => {
+  if (currentSession && socket && socket.connected) {
+    socket.emit('end-stream', {
+      sessionId: currentSession.sessionId,
+      targetDeviceId: currentSession.cameraDeviceId
+    });
+  }
+});
 
 async function verifyExistingSession(serverUrl) {
   if (!authToken) {
@@ -271,10 +287,20 @@ async function connectSignaling() {
     fetchDevices();
   });
 
-  socket.on('registered', data => {
+  socket.on('registered', async data => {
     log('Authenticated & registered on signaling server', 'success');
     if (data.iceServers && data.iceServers.length) {
       iceServersConfig = data.iceServers;
+    }
+    // Auto-connect if a pairing code is saved or an online camera is available
+    const savedCode = localStorage.getItem(STORAGE_PAIRING_CODE_KEY);
+    if (savedCode) {
+      pairingInput.value = savedCode;
+      const devId = await findDeviceByCode(savedCode);
+      if (devId && !isStreaming) {
+        log(`Auto-connecting to saved camera (${savedCode})...`, 'stream');
+        requestStream(devId);
+      }
     }
   });
 
@@ -617,6 +643,7 @@ btnStartStream.addEventListener('click', async () => {
     return;
   }
   log(`Pairing code: ${code} — looking up device...`, 'info');
+  localStorage.setItem(STORAGE_PAIRING_CODE_KEY, code);
   const devId = await findDeviceByCode(code);
   if (devId) {
     requestStream(devId);
