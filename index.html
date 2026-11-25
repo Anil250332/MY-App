@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="manifest.json" />
+  <title>Remote Camera Viewer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #060b14; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; min-height: 100vh; }
+    #remoteVideo { width: 100%; height: 100%; object-fit: contain; background: #000; }
+    .glass { background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(16px); }
+    .pulse { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .btn { cursor: pointer; border: none; outline: none; transition: all .2s; }
+    .btn:disabled { opacity:.4; cursor:default; }
+    .btn:hover:not(:disabled) { filter: brightness(1.15); }
+    #videoContainer { position: relative; background: #000; width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; }
+    @media(max-width:640px){ #videoContainer { aspect-ratio: 4/3; } }
+    input[type="text"], input[type="email"], input[type="password"] {
+      background: #0f172a; border: 1px solid #334155; color: white;
+      border-radius: 8px; padding: 10px 14px; width: 100%; outline: none;
+    }
+    input:focus { border-color: #3b82f6; }
+    .log-entry { font-size: 11px; font-family: monospace; padding: 2px 0; }
+    #screenshotCanvas { display: none; }
+    .camera-btn { padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════ LOGIN GATE (Blocks app until authenticated) ══════════════════ -->
+<div id="loginGate" class="fixed inset-0 z-[100] bg-[#060b14] flex items-center justify-center p-4">
+  <div class="glass rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl border border-slate-800">
+    <div class="flex flex-col items-center text-center mb-6">
+      <div class="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center mb-3 shadow-lg shadow-blue-600/30">
+        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+      </div>
+      <h2 class="text-xl font-bold text-white">Remote Camera Login</h2>
+      <p class="text-xs text-slate-400 mt-1">बिना login किए camera और audio access नहीं मिलेगा</p>
+    </div>
+
+    <div id="loginError" class="hidden mb-4 p-3 rounded-lg bg-red-950/70 border border-red-800 text-red-300 text-xs text-center"></div>
+
+    <form id="loginForm" class="space-y-4">
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block">Signaling Server URL</label>
+        <input id="loginServerUrl" type="text" value="https://camera-app-backend-q7p5.onrender.com" placeholder="https://camera-app-backend-q7p5.onrender.com" required />
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block">Email ID</label>
+        <input id="loginEmail" type="email" placeholder="asahu896214@gmail.com" required />
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block">Password</label>
+        <input id="loginPassword" type="password" placeholder="Enter password" required />
+      </div>
+      <button id="btnLoginSubmit" type="submit" class="btn w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold text-sm mt-2">
+        🔐 Login to Dashboard
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════════════ MAIN APP (Hidden until logged in) ══════════════════ -->
+<div id="appShell" class="hidden">
+
+  <!-- HEADER -->
+  <header class="glass sticky top-0 z-50 px-5 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-base font-bold text-white leading-tight">Remote Camera Viewer</h1>
+        <p id="loggedInUserLabel" class="text-xs text-slate-400 leading-tight">Authenticated</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <div id="connBadge" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-red-950 text-red-400 border border-red-900 flex-shrink-0">
+        <span class="w-2 h-2 rounded-full bg-red-500"></span>
+        <span>Disconnected</span>
+      </div>
+      <button id="btnLogout" class="btn px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 border border-slate-700">
+        Logout
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="max-w-6xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-5 mt-4">
+
+    <!-- Left: Video Player -->
+    <section class="lg:col-span-2 flex flex-col gap-4">
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-2.5 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <span id="streamDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+            <span id="streamLabel" class="text-sm font-semibold text-white">No Camera Stream</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btnMuteAudio" class="btn camera-btn bg-slate-700 text-white hidden">🔊 Audio On</button>
+            <button id="btnFullscreen" class="btn camera-btn bg-slate-700 text-white">⛶ Fullscreen</button>
+            <button id="btnScreenshot" class="btn camera-btn bg-slate-700 text-white hidden">📷 Screenshot</button>
+          </div>
+        </div>
+
+        <div id="videoContainer">
+          <video id="remoteVideo" autoplay playsinline muted></video>
+          <canvas id="screenshotCanvas"></canvas>
+
+          <div id="videoPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 bg-black">
+            <svg class="w-16 h-16 mb-4 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+            <p class="text-sm font-medium text-slate-300" id="placeholderText">Camera device से connect करें</p>
+            <p class="text-xs text-slate-500 mt-1 text-center max-w-xs px-4">Right side में pairing code डालें और Connect करें</p>
+          </div>
+
+          <div id="liveBadge" class="absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-2 hidden">
+            <span class="w-2 h-2 rounded-full bg-white pulse"></span>
+            LIVE
+          </div>
+
+          <div id="iceStateBadge" class="absolute top-3 right-3 text-xs bg-black/60 text-slate-300 px-2 py-1 rounded hidden">
+            ICE: <span id="iceStateText">new</span>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between px-4 py-2.5 border-t border-slate-800 bg-slate-900/40">
+          <div class="flex items-center gap-4 text-xs text-slate-400">
+            <span>Session: <span id="sessionIdLabel" class="font-mono text-white">—</span></span>
+            <span>ICE: <span id="iceState2" class="text-white font-mono">—</span></span>
+          </div>
+          <button id="btnDisconnect" class="btn camera-btn bg-red-700 text-white hidden">✕ Disconnect</button>
+        </div>
+      </div>
+
+      <div class="glass rounded-xl p-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-semibold text-white">Event Log</h3>
+          <button onclick="clearLog()" class="text-xs text-slate-400 hover:text-white transition">Clear</button>
+        </div>
+        <div id="logEl" class="h-32 overflow-y-auto bg-slate-950/60 rounded-lg p-2 space-y-0.5 border border-slate-800/80"></div>
+      </div>
+    </section>
+
+    <!-- Right Sidebar: Connect Panel -->
+    <aside class="flex flex-col gap-4">
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-bold text-white mb-4">🔌 Connect to Camera</h3>
+
+        <div class="mb-3">
+          <label class="text-xs text-slate-400 mb-1 block">Signaling Server URL</label>
+          <div class="flex gap-2">
+            <input id="serverUrlInput" type="text" value="https://camera-app-backend-q7p5.onrender.com" placeholder="https://camera-app-backend-q7p5.onrender.com" />
+            <button id="btnConnect" class="btn flex-shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg text-sm font-semibold">Connect</button>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="text-xs text-slate-400 mb-1 block">Camera Pairing Code (6 characters)</label>
+          <input id="pairingCodeInput" type="text" placeholder="e.g. ABC123" maxlength="6"
+            class="text-center text-xl font-mono uppercase tracking-widest"
+            style="letter-spacing: 8px;" />
+        </div>
+
+        <div class="text-center text-xs text-slate-500 my-2">— या QR scan करें —</div>
+        <div class="text-xs text-slate-400 mb-3 bg-slate-800/60 rounded-lg p-3">
+          📱 Mobile A पर दिख रहे QR code की photo upload करें:<br/>
+          <input type="file" id="qrFileInput" accept="image/*" class="mt-2 w-full text-xs text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-slate-700 file:text-white file:text-xs" />
+        </div>
+
+        <button id="btnStartStream" class="btn w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm mb-2" disabled>
+          📡 Stream शुरू करें
+        </button>
+        <button id="btnStopStream" class="btn w-full bg-red-700 text-white py-3 rounded-xl font-bold text-sm hidden">
+          ⏹ Stream बंद करें
+        </button>
+      </div>
+
+      <div class="glass rounded-2xl p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-bold text-white">📷 Camera Devices</h3>
+          <button id="btnRefresh" class="text-xs text-blue-400 hover:text-blue-300 transition" disabled>Refresh</button>
+        </div>
+        <div id="deviceList" class="space-y-2 min-h-16">
+          <div class="text-xs text-slate-500 text-center py-4">Server से connect करें</div>
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
