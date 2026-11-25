@@ -1,6 +1,7 @@
 // ══════════════════════════════════════════════
-//  Remote Camera Viewer — Protected Dashboard app.js
-//  Requires JWT Login before accessing camera/audio
+//  CamGuard Viewer — Auto-Connect Dashboard app.js
+//  Login -> Auto-connect to online camera
+//  Logout -> Disconnect stream & return camera to Standby
 // ══════════════════════════════════════════════
 
 'use strict';
@@ -9,7 +10,6 @@ const STORAGE_TOKEN_KEY = 'rs_auth_token';
 const STORAGE_EMAIL_KEY = 'rs_auth_email';
 const STORAGE_SERVER_KEY = 'rs_server_url';
 const STORAGE_VIEWER_ID_KEY = 'rs_viewer_device_id';
-const STORAGE_PAIRING_CODE_KEY = 'rs_pairing_code';
 
 // ── State ──────────────────────────────────────
 let authToken       = localStorage.getItem(STORAGE_TOKEN_KEY) || '';
@@ -25,6 +25,7 @@ if (!viewerDeviceId) {
   viewerDeviceId = 'web_' + Math.random().toString(36).substring(2, 10);
   localStorage.setItem(STORAGE_VIEWER_ID_KEY, viewerDeviceId);
 }
+
 let iceServersConfig = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
@@ -44,15 +45,11 @@ const btnLogout       = document.getElementById('btnLogout');
 const loggedInUserLbl = document.getElementById('loggedInUserLabel');
 
 const serverUrlInput  = document.getElementById('serverUrlInput');
-const pairingInput    = document.getElementById('pairingCodeInput');
-const qrFileInput     = document.getElementById('qrFileInput');
 const btnConnect      = document.getElementById('btnConnect');
-const btnStartStream  = document.getElementById('btnStartStream');
-const btnStopStream   = document.getElementById('btnStopStream');
 const btnDisconnect   = document.getElementById('btnDisconnect');
 const btnRefresh      = document.getElementById('btnRefresh');
-const btnMuteAudio    = document.getElementById('btnMuteAudio');
 const btnSwitchCamera = document.getElementById('btnSwitchCamera');
+const btnMuteAudio    = document.getElementById('btnMuteAudio');
 const btnFullscreen   = document.getElementById('btnFullscreen');
 const btnScreenshot   = document.getElementById('btnScreenshot');
 const connBadge       = document.getElementById('connBadge');
@@ -143,7 +140,6 @@ async function verifyExistingSession(serverUrl) {
       logout();
     }
   } catch {
-    // Server unreachable on load; let user login/retry
     showLoginGate();
   }
 }
@@ -181,7 +177,7 @@ loginForm.addEventListener('submit', async e => {
     showLoginGate(`Server connection failed: ${err.message}`);
   } finally {
     btnLoginSubmit.disabled = false;
-    btnLoginSubmit.textContent = '🔐 Login to Dashboard';
+    btnLoginSubmit.textContent = '🔐 Login & Connect';
   }
 });
 
@@ -192,12 +188,10 @@ function setConnected(yes) {
   if (yes) {
     connBadge.className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-950 text-emerald-400 border border-emerald-900 flex-shrink-0';
     connBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Connected</span>';
-    btnStartStream.disabled = false;
     btnRefresh.disabled = false;
   } else {
     connBadge.className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-red-950 text-red-400 border border-red-900 flex-shrink-0';
     connBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span><span>Disconnected</span>';
-    btnStartStream.disabled = true;
     btnRefresh.disabled = true;
   }
 }
@@ -215,19 +209,15 @@ function setStreamingUI(streaming) {
     btnMuteAudio.classList.remove('hidden');
     btnScreenshot.classList.remove('hidden');
     btnDisconnect.classList.remove('hidden');
-    btnStopStream.classList.remove('hidden');
-    btnStartStream.classList.add('hidden');
   } else {
     streamDot.className = 'w-2.5 h-2.5 rounded-full bg-slate-500';
-    streamLabel.textContent = 'No Camera Stream';
+    streamLabel.textContent = 'Standby (Waiting for Camera)';
     liveBadge.classList.add('hidden');
     iceStateBadge.classList.add('hidden');
     btnSwitchCamera.classList.add('hidden');
     btnMuteAudio.classList.add('hidden');
     btnScreenshot.classList.add('hidden');
     btnDisconnect.classList.add('hidden');
-    btnStopStream.classList.add('hidden');
-    btnStartStream.classList.remove('hidden');
   }
 }
 
@@ -279,12 +269,10 @@ async function connectSignaling() {
 
     socket.emit('register-device', {
       deviceId: viewerDeviceId,
-      deviceName: 'Web Dashboard Viewer',
+      deviceName: 'CamGuard Web Viewer',
       deviceType: 'viewer',
       token: authToken
     });
-
-    fetchDevices();
   });
 
   socket.on('registered', async data => {
@@ -292,16 +280,8 @@ async function connectSignaling() {
     if (data.iceServers && data.iceServers.length) {
       iceServersConfig = data.iceServers;
     }
-    // Auto-connect if a pairing code is saved or an online camera is available
-    const savedCode = localStorage.getItem(STORAGE_PAIRING_CODE_KEY);
-    if (savedCode) {
-      pairingInput.value = savedCode;
-      const devId = await findDeviceByCode(savedCode);
-      if (devId && !isStreaming) {
-        log(`Auto-connecting to saved camera (${savedCode})...`, 'stream');
-        requestStream(devId);
-      }
-    }
+    // Auto-discover online camera and connect immediately
+    await fetchDevices(true);
   });
 
   socket.on('disconnect', () => {
@@ -311,13 +291,13 @@ async function connectSignaling() {
   });
 
   socket.on('stream-request-sent', data => {
-    log(`Stream consent request sent → session: ${data.sessionId}`, 'info');
+    log(`Connecting to camera → session: ${data.sessionId}`, 'info');
     sessionIdLabel.textContent = data.sessionId.substring(0, 12) + '...';
-    placeholderText.textContent = 'Mobile पर Approve करें...';
+    placeholderText.textContent = 'Camera connect ho raha hai...';
   });
 
   socket.on('stream-approved', async data => {
-    log(`Stream APPROVED ✓ Camera device: ${data.cameraDeviceId}`, 'success');
+    log(`Stream connected ✓ Camera: ${data.cameraDeviceId}`, 'success');
     if (data.iceServers && data.iceServers.length) iceServersConfig = data.iceServers;
     currentSession = { sessionId: data.sessionId, cameraDeviceId: data.cameraDeviceId };
     sessionIdLabel.textContent = data.sessionId.substring(0, 12) + '...';
@@ -325,8 +305,8 @@ async function connectSignaling() {
   });
 
   socket.on('stream-rejected', data => {
-    log(`Stream REJECTED — ${data.message}`, 'error');
-    placeholderText.textContent = 'Stream reject हो गया। फिर से try करें।';
+    log(`Stream declined — ${data.message}`, 'error');
+    placeholderText.textContent = 'Camera access declined on phone.';
     setStreamingUI(false);
   });
 
@@ -447,19 +427,16 @@ function teardownPeer(resetUI = true) {
     setStreamingUI(false);
     updateIceState('—');
     sessionIdLabel.textContent = '—';
-    placeholderText.textContent = 'Camera device से connect करें';
+    placeholderText.textContent = 'Camera standby par hai — Refresh ya Connect dabaye';
     currentSession = null;
   }
 }
 
 // ── Request Stream ─────────────────────────────
 function requestStream(cameraDeviceId) {
-  if (!socket || !socket.connected) {
-    alert('पहले server से connect करें।');
-    return;
-  }
-  log(`Stream request → Camera: ${cameraDeviceId}`, 'info');
-  placeholderText.textContent = 'Stream request भेजी जा रही है...';
+  if (!socket || !socket.connected) return;
+  log(`Auto-connecting to camera: ${cameraDeviceId}`, 'info');
+  placeholderText.textContent = 'Camera connect ho raha hai...';
   videoPlaceholder.classList.remove('hidden');
 
   socket.emit('request-stream', {
@@ -469,8 +446,8 @@ function requestStream(cameraDeviceId) {
   });
 }
 
-// ── Fetch Devices (Authenticated) ──────────────
-async function fetchDevices() {
+// ── Fetch Devices & Auto-Connect ───────────────
+async function fetchDevices(autoConnect = false) {
   const url = serverUrlInput.value.trim().replace(/\/+$/, '');
   if (!url || !authToken) return;
   try {
@@ -482,7 +459,21 @@ async function fetchDevices() {
       return;
     }
     const data = await res.json();
-    renderDevices(data.data || []);
+    const list = data.data || [];
+    renderDevices(list);
+
+    if (autoConnect && !isStreaming) {
+      const onlineItem = list.find(item => {
+        const d = item.device || item;
+        return d.status === 'online' || d.status === 'streaming';
+      });
+      if (onlineItem) {
+        const dev = onlineItem.device || onlineItem;
+        requestStream(dev.id);
+      } else {
+        placeholderText.textContent = 'Koi camera abhi online nahi hai. Phone par CamGuard open karein.';
+      }
+    }
   } catch (err) {
     deviceListEl.innerHTML = `<div class="text-xs text-rose-400">Devices fetch failed: ${err.message}</div>`;
   }
@@ -490,7 +481,7 @@ async function fetchDevices() {
 
 function renderDevices(items) {
   if (!items.length) {
-    deviceListEl.innerHTML = '<div class="text-xs text-slate-500 text-center py-3">No camera devices registered yet.<br/>Mobile पर APK open करें।</div>';
+    deviceListEl.innerHTML = '<div class="text-xs text-slate-500 text-center py-3">No camera devices registered yet.</div>';
     return;
   }
   deviceListEl.innerHTML = '';
@@ -517,79 +508,12 @@ function renderDevices(items) {
   document.querySelectorAll('.btn-dev').forEach(btn => {
     btn.addEventListener('click', e => {
       const devId = e.target.getAttribute('data-id');
-      pairingInput.value = '';
       requestStream(devId);
     });
   });
 }
 
-// ── Find camera by pairing code (Authenticated) ──
-async function findDeviceByCode(code) {
-  const url = serverUrlInput.value.trim().replace(/\/+$/, '');
-  try {
-    const res = await fetch(`${url}/api/devices/pair`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`
-      },
-      body: JSON.stringify({ viewerDeviceId, pairingCode: code })
-    });
-    if (res.status === 401) {
-      logout();
-      return null;
-    }
-    const data = await res.json();
-    if (data.success) {
-      const devId = data.data?.pairedDevice?.id;
-      log(`Device found by code: ${devId}`, 'success');
-      return devId;
-    } else {
-      log(`Code not found: ${data.message}`, 'error');
-      return null;
-    }
-  } catch (err) {
-    log(`Error looking up pairing code: ${err.message}`, 'error');
-    return null;
-  }
-}
-
-// ── QR Code File Scan ──────────────────────────
-qrFileInput.addEventListener('change', async e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  try {
-    const img = new Image();
-    img.onload = async () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width; canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      if (window.jsQR) {
-        const result = jsQR(imageData.data, imageData.width, imageData.height);
-        if (result && result.data) {
-          try {
-            const parsed = JSON.parse(result.data);
-            const code = parsed.code || result.data;
-            pairingInput.value = code.toUpperCase();
-            log(`QR decoded: ${code}`, 'success');
-            if (parsed.server) serverUrlInput.value = parsed.server;
-          } catch { pairingInput.value = result.data.toUpperCase(); }
-        } else {
-          log('QR decode failed — code manually डालें', 'warn');
-        }
-      } else {
-        log('QR file uploaded — code manually डालें', 'warn');
-      }
-    };
-    img.src = URL.createObjectURL(file);
-  } catch (err) {
-    log('QR image error: ' + err.message, 'error');
-  }
-});
-
-// ── Screenshot ─────────────────────────────────
+// ── Controls ───────────────────────────────────
 btnScreenshot.addEventListener('click', () => {
   if (!remoteVideo.srcObject) return;
   const canvas = document.getElementById('screenshotCanvas');
@@ -603,14 +527,12 @@ btnScreenshot.addEventListener('click', () => {
   log('Screenshot saved', 'success');
 });
 
-// ── Switch Camera (Front <-> Back) ─────────────
 btnSwitchCamera.addEventListener('click', () => {
   if (!currentSession || !socket || !socket.connected) return;
   socket.emit('switch-camera', { targetDeviceId: currentSession.cameraDeviceId });
   log('🔄 Switching camera (Front ↔ Back)...', 'stream');
 });
 
-// ── Audio Toggle ───────────────────────────────
 btnMuteAudio.addEventListener('click', () => {
   audioEnabled = !audioEnabled;
   remoteVideo.muted = !audioEnabled;
@@ -619,7 +541,6 @@ btnMuteAudio.addEventListener('click', () => {
   log(`Audio ${audioEnabled ? 'enabled' : 'muted'}`, 'info');
 });
 
-// ── Fullscreen ─────────────────────────────────
 btnFullscreen.addEventListener('click', () => {
   const container = document.getElementById('videoContainer');
   if (!document.fullscreenElement) {
@@ -629,37 +550,7 @@ btnFullscreen.addEventListener('click', () => {
   }
 });
 
-// ── Main Buttons ───────────────────────────────
 btnConnect.addEventListener('click', connectSignaling);
-
-btnStartStream.addEventListener('click', async () => {
-  const code = pairingInput.value.trim().toUpperCase();
-  if (!code || code.length !== 6) {
-    alert('6-character pairing code डालें (जो mobile पर दिख रहा है)');
-    return;
-  }
-  if (!socket || !socket.connected) {
-    alert('पहले server से connect करें।');
-    return;
-  }
-  log(`Pairing code: ${code} — looking up device...`, 'info');
-  localStorage.setItem(STORAGE_PAIRING_CODE_KEY, code);
-  const devId = await findDeviceByCode(code);
-  if (devId) {
-    requestStream(devId);
-  }
-});
-
-btnStopStream.addEventListener('click', () => {
-  if (currentSession && socket) {
-    socket.emit('end-stream', {
-      sessionId: currentSession.sessionId,
-      targetDeviceId: currentSession.cameraDeviceId
-    });
-    log('Stream manually stopped from dashboard', 'warn');
-  }
-  teardownPeer();
-});
 
 btnDisconnect.addEventListener('click', () => {
   if (currentSession && socket) {
@@ -671,23 +562,15 @@ btnDisconnect.addEventListener('click', () => {
   teardownPeer();
 });
 
-btnRefresh.addEventListener('click', fetchDevices);
+btnRefresh.addEventListener('click', () => fetchDevices(false));
 
 // ── Initialize on Load ─────────────────────────
 window.addEventListener('load', () => {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
-  const s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
-  document.head.appendChild(s);
-
   const savedServer = localStorage.getItem(STORAGE_SERVER_KEY) || 'https://camera-app-backend-q7p5.onrender.com';
   loginServerUrl.value = savedServer;
   serverUrlInput.value = savedServer;
   verifyExistingSession(savedServer);
-});
-
-pairingInput.addEventListener('input', e => {
-  e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
 });
