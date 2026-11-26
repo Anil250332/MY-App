@@ -61,11 +61,9 @@
     }
     #videoContainer {
       position: relative; background: #02040a; width: 100%; height: 100%;
-      aspect-ratio: 16/9; border-radius: 14px; overflow: hidden;
+      border-radius: 14px; overflow: hidden;
       border: 1px solid rgba(148, 163, 184, 0.12);
     }
-    @media(max-width:1023px){ #videoContainer { height: auto; aspect-ratio: 16/9; } }
-    @media(max-width:640px){ #videoContainer { aspect-ratio: 4/3; } }
     input[type="text"], input[type="email"], input[type="password"] {
       background: rgba(9, 14, 28, 0.9);
       border: 1px solid rgba(51, 65, 85, 0.85);
@@ -128,14 +126,41 @@
 <!-- ══════════════════ MAIN APP ══════════════════ -->
 <div id="appShell" class="hidden min-h-screen lg:h-screen lg:overflow-hidden flex flex-col">
 
-  <!-- Wireframe Layout (100vh fit on laptop/desktop, scrollable stacked on mobile):
-       Desktop (lg): Left full-height Terminal | Right Top (Signaling Server + Camera Devices) | Right Bottom (Live Camera Stream)
-       Mobile: Live Camera Stream -> Camera Devices & Signaling Server -> Terminal -->
-  <main class="max-w-[1600px] w-full mx-auto p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-[auto_1fr] gap-3.5 flex-1 min-h-0">
+  <!-- Desktop (lg, 100vh): Left (Camera Devices -> Signaling Server -> Terminal) | Right (email + logout -> Live Camera Stream)
+       Mobile: Right (email + logout -> 80vh Live Camera Stream) -> Left (Camera Devices -> Signaling Server -> Terminal) -->
+  <main class="max-w-[1600px] w-full mx-auto p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-3.5 flex-1 min-h-0">
 
-    <!-- Left Full-Height Terminal (Desktop col 1-3, row 1-2; Mobile bottom) -->
-    <aside class="order-3 lg:order-1 lg:col-span-3 lg:row-span-2 flex flex-col min-h-0">
-      <div class="glass rounded-2xl p-4 flex flex-col h-64 lg:h-full min-h-0">
+    <!-- Left Column on Desktop (order-2 on Mobile, order-1 on Desktop) -->
+    <aside class="order-2 lg:order-1 lg:col-span-4 flex flex-col gap-3.5 min-h-0">
+      <div class="glass rounded-2xl p-3.5 sm:p-4 flex-shrink-0">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+            <span>📷</span> Camera Devices
+          </h3>
+          <button id="btnRefresh" class="btn text-xs font-semibold text-blue-300 bg-blue-950/60 border border-blue-800/60 px-2.5 py-1 rounded-lg" disabled>↻ Refresh</button>
+        </div>
+        <div id="deviceList" class="space-y-2 max-h-28 overflow-y-auto pr-1">
+          <div class="text-xs text-slate-500 text-center py-2">Searching for online cameras...</div>
+        </div>
+      </div>
+
+      <div class="glass rounded-2xl p-3.5 sm:p-4 flex-shrink-0">
+        <div class="flex items-center justify-between gap-2 mb-2.5">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-blue-400"></span> Signaling Server
+          </h3>
+          <div id="connBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-red-950/90 text-red-400 border border-red-900 flex-shrink-0">
+            <span class="w-2 h-2 rounded-full bg-red-500"></span>
+            <span>Disconnected</span>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <input id="serverUrlInput" type="text" value="https://camera-app-backend-q7p5.onrender.com" class="text-xs" />
+          <button id="btnConnect" class="btn flex-shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-semibold">Reconnect</button>
+        </div>
+      </div>
+
+      <div class="glass rounded-2xl p-4 flex flex-col h-64 lg:h-auto lg:flex-1 min-h-0">
         <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-800/80 flex-shrink-0">
           <div class="flex items-center gap-2">
             <span class="flex items-center gap-1.5">
@@ -148,55 +173,29 @@
           <button onclick="clearLog()" class="btn text-xs text-slate-300 px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60">Clear</button>
         </div>
         <div id="logEl" class="flex-1 min-h-0 overflow-y-auto bg-[#03060d] rounded-xl p-3 space-y-0.5 border border-slate-800/80"></div>
-        <p id="loggedInUserLabel" class="text-[10px] text-slate-500 truncate mt-2 flex-shrink-0">Authenticated</p>
       </div>
     </aside>
 
-    <!-- Right Top Row: Signaling Server & Camera Devices -->
-    <div class="order-2 lg:order-2 lg:col-span-9 grid grid-cols-1 md:grid-cols-2 gap-3.5 flex-shrink-0">
-      <div class="glass rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between">
-        <div class="flex items-center justify-between gap-2 mb-2.5">
-          <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-blue-400"></span> Signaling Server
-          </h3>
-          <div class="flex items-center gap-2">
-            <div id="connBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-red-950/90 text-red-400 border border-red-900 flex-shrink-0">
-              <span class="w-2 h-2 rounded-full bg-red-500"></span>
-              <span>Disconnected</span>
-            </div>
-            <button id="btnLogout" class="btn px-3 py-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700/80">
-              Logout
-            </button>
-          </div>
+    <!-- Right Column on Desktop (order-1 on Mobile, order-2 on Desktop) -->
+    <section class="order-1 lg:order-2 lg:col-span-8 flex flex-col gap-3 min-h-0">
+      <!-- Floating email pill + Logout button (No Navbar) -->
+      <div class="flex items-center justify-between gap-2 flex-shrink-0">
+        <div class="glass px-3.5 py-1.5 rounded-xl text-xs text-slate-300 truncate max-w-[68%] border border-slate-700/60">
+          <span id="loggedInUserLabel" class="font-medium">Authenticated</span>
         </div>
-        <div class="flex gap-2">
-          <input id="serverUrlInput" type="text" value="https://camera-app-backend-q7p5.onrender.com" class="text-xs" />
-          <button id="btnConnect" class="btn flex-shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-semibold">Reconnect</button>
-        </div>
+        <button id="btnLogout" class="btn px-4 py-1.5 rounded-xl bg-slate-800/95 hover:bg-slate-700 text-xs font-semibold text-slate-100 border border-slate-700/80 flex-shrink-0">
+          Logout
+        </button>
       </div>
 
-      <div class="glass rounded-2xl p-3.5 sm:p-4">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-            <span>📷</span> Camera Devices
-          </h3>
-          <button id="btnRefresh" class="btn text-xs font-semibold text-blue-300 bg-blue-950/60 border border-blue-800/60 px-2.5 py-1 rounded-lg" disabled>↻ Refresh</button>
-        </div>
-        <div id="deviceList" class="space-y-2 max-h-24 overflow-y-auto pr-1">
-          <div class="text-xs text-slate-500 text-center py-2">Searching for online cameras...</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Right Bottom: Large Live Camera Stream -->
-    <section class="order-1 lg:order-3 lg:col-span-9 flex flex-col min-h-0">
-      <div class="glass rounded-2xl overflow-hidden flex-1 flex flex-col min-h-0">
-        <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-slate-800/80 bg-slate-900/35 flex-shrink-0">
+      <!-- Live Camera Stream: 80vh on Mobile, fills remaining 100vh on Desktop -->
+      <div class="glass rounded-2xl overflow-hidden h-[80vh] lg:h-auto lg:flex-1 flex flex-col min-h-0">
+        <div class="flex flex-wrap items-center justify-between gap-2 px-3.5 sm:px-4 py-2.5 border-b border-slate-800/80 bg-slate-900/35 flex-shrink-0">
           <div class="flex items-center gap-2.5">
             <span id="streamDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
             <span id="streamLabel" class="text-sm font-semibold text-white">Connecting to Camera...</span>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
+          <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <button id="btnSwitchCamera" class="btn camera-btn bg-blue-600/90 hover:bg-blue-500 text-white" disabled>🔄 Flip Camera</button>
             <button id="btnMuteAudio" class="btn camera-btn bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700/70" disabled>🔊 Audio On</button>
             <button id="btnFullscreen" class="btn camera-btn bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700/70">⛶ Fullscreen</button>
