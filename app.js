@@ -615,11 +615,11 @@ function renderDevices(items) {
         </div>
       </div>
       <div class="flex items-center gap-1.5 flex-shrink-0">
-        <button class="btn-dev text-xs bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 rounded-lg font-semibold"
+        <button class="btn btn-dev text-xs bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 rounded-lg font-semibold"
           data-id="${dev.id}" ${!isOnline ? 'disabled style="opacity:.4"' : ''}>
           Connect
         </button>
-        <button class="btn-del-dev text-xs bg-red-900/80 hover:bg-red-700 text-red-200 px-2 py-1 rounded-lg font-semibold"
+        <button class="btn btn-del-dev text-xs bg-red-900/80 hover:bg-red-700 text-red-200 px-2 py-1 rounded-lg font-semibold"
           data-id="${dev.id}" title="Delete device">
           🗑️
         </button>
@@ -629,14 +629,20 @@ function renderDevices(items) {
 
   document.querySelectorAll('.btn-dev').forEach(btn => {
     btn.addEventListener('click', e => {
-      const devId = e.currentTarget.getAttribute('data-id');
+      const targetBtn = e.currentTarget;
+      const devId = targetBtn.getAttribute('data-id');
+      targetBtn.textContent = 'Connecting...';
+      setTimeout(() => { targetBtn.textContent = 'Connect'; }, 1500);
       requestStream(devId);
     });
   });
 
   document.querySelectorAll('.btn-del-dev').forEach(btn => {
     btn.addEventListener('click', e => {
-      const devId = e.currentTarget.getAttribute('data-id');
+      const targetBtn = e.currentTarget;
+      const devId = targetBtn.getAttribute('data-id');
+      targetBtn.disabled = true;
+      targetBtn.textContent = '...';
       deleteDevice(devId);
     });
   });

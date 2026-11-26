@@ -37,13 +37,28 @@
     .pulse { animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
     .btn {
-      cursor: pointer; border: none; outline: none;
-      transition: transform .12s ease, filter .2s ease, background-color .2s ease;
+      cursor: pointer; border: none; outline: none; position: relative;
+      box-shadow: 0 3px 0 rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+      transition: transform .12s ease, filter .18s ease, box-shadow .12s ease, background-color .18s ease;
       touch-action: manipulation; -webkit-tap-highlight-color: transparent;
     }
-    .btn:active:not(:disabled) { transform: scale(0.97); }
-    .btn:disabled { opacity:.4; cursor:default; transform: none; }
-    .btn:hover:not(:disabled) { filter: brightness(1.12); }
+    .btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      filter: brightness(1.12);
+      box-shadow: 0 4px 0 rgba(0, 0, 0, 0.48), 0 8px 18px rgba(37, 99, 235, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    }
+    .btn:focus-visible:not(:disabled) {
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.45), 0 3px 0 rgba(0, 0, 0, 0.45);
+    }
+    .btn:active:not(:disabled) {
+      transform: translateY(2px) scale(0.98);
+      filter: brightness(0.95);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.5), inset 0 2px 5px rgba(0, 0, 0, 0.35);
+    }
+    .btn:disabled {
+      opacity: .4; cursor: default; transform: none;
+      box-shadow: none;
+    }
     #videoContainer {
       position: relative; background: #02040a; width: 100%;
       aspect-ratio: 16/9; border-radius: 14px; overflow: hidden;
@@ -99,7 +114,7 @@
         <label class="text-xs font-medium text-slate-400 mb-1.5 block">Password</label>
         <div class="relative">
           <input id="loginPassword" type="password" placeholder="Enter password" autocomplete="current-password" class="pr-14" required />
-          <button type="button" id="btnTogglePwd" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-xs font-medium px-1" aria-label="Show or hide password">Show</button>
+          <button type="button" id="btnTogglePwd" class="btn absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 bg-slate-800/80 rounded-lg text-xs font-medium px-2 py-1" aria-label="Show or hide password">Show</button>
         </div>
       </div>
       <button id="btnLoginSubmit" type="submit" class="btn w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3.5 rounded-xl font-semibold text-sm mt-2 shadow-lg shadow-blue-600/25">
@@ -156,7 +171,7 @@
             </span>
             <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-300 ml-1">Terminal</h3>
           </div>
-          <button onclick="clearLog()" class="text-xs text-slate-400 hover:text-white transition px-2 py-0.5 rounded bg-slate-800/70">Clear</button>
+          <button onclick="clearLog()" class="btn text-xs text-slate-300 px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60">Clear</button>
         </div>
         <div id="logEl" class="flex-1 overflow-y-auto bg-[#03060d] rounded-xl p-3 space-y-0.5 border border-slate-800/80"></div>
       </div>
@@ -181,7 +196,7 @@
           <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
             <span>📷</span> Camera Devices
           </h3>
-          <button id="btnRefresh" class="text-xs font-semibold text-blue-400 hover:text-blue-300 transition" disabled>↻ Refresh</button>
+          <button id="btnRefresh" class="btn text-xs font-semibold text-blue-300 bg-blue-950/60 border border-blue-800/60 px-2.5 py-1 rounded-lg" disabled>↻ Refresh</button>
         </div>
         <div id="deviceList" class="space-y-2 max-h-36 overflow-y-auto pr-1">
           <div class="text-xs text-slate-500 text-center py-2">Searching for online cameras...</div>
