@@ -325,8 +325,8 @@ async function connectSignaling() {
     if (data.iceServers && data.iceServers.length) {
       iceServersConfig = data.iceServers;
     }
-    // Auto-discover online camera and connect immediately
-    await fetchDevices(true);
+    // Load camera devices list without auto-connecting; user connects via Connect button
+    await fetchDevices(false);
   });
 
   socket.on('disconnect', () => {
@@ -405,7 +405,7 @@ async function connectSignaling() {
   });
 
   socket.on('devices-updated', () => {
-    fetchDevices(!isStreaming && !currentSession && !pendingConnectCameraId);
+    fetchDevices(false);
   });
 }
 
@@ -549,14 +549,18 @@ async function fetchDevices(autoConnect = false) {
     const list = data.data || [];
     renderDevices(list);
 
-    if (autoConnect && !isStreaming && !currentSession && !pendingConnectCameraId) {
+    if (!isStreaming && !currentSession && !pendingConnectCameraId) {
       const onlineItem = list.find(item => {
         const d = item.device || item;
         return d.status === 'online' || d.status === 'streaming';
       });
       if (onlineItem) {
-        const dev = onlineItem.device || onlineItem;
-        requestStream(dev.id);
+        if (autoConnect) {
+          const dev = onlineItem.device || onlineItem;
+          requestStream(dev.id);
+        } else {
+          placeholderText.textContent = 'Camera online hai — Connect button par click karein.';
+        }
       } else {
         placeholderText.textContent = 'Koi camera abhi online nahi hai. Phone par CamGuard open karein.';
       }
