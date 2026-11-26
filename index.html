@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <meta name="theme-color" content="#2563eb" />
+  <meta name="theme-color" content="#0f172a" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -18,171 +18,223 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.min.js" crossorigin="anonymous"></script>
   <style>
     * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-    html, body { margin: 0; padding: 0; min-height: 100vh; background: #060b14; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    html, body {
+      margin: 0; padding: 0; min-height: 100vh;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(37, 99, 235, 0.18), transparent),
+        radial-gradient(ellipse 60% 45% at 85% 110%, rgba(99, 102, 241, 0.14), transparent),
+        #050811;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
     #remoteVideo { width: 100%; height: 100%; object-fit: contain; background: #000; }
-    .glass { background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(16px); }
+    .glass {
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      box-shadow: 0 10px 35px -10px rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(20px);
+    }
     .pulse { animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-    .btn { cursor: pointer; border: none; outline: none; transition: transform .1s, filter .2s; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-    .btn:active { transform: scale(0.97); }
+    .btn {
+      cursor: pointer; border: none; outline: none;
+      transition: transform .12s ease, filter .2s ease, background-color .2s ease;
+      touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active:not(:disabled) { transform: scale(0.97); }
     .btn:disabled { opacity:.4; cursor:default; transform: none; }
-    .btn:hover:not(:disabled) { filter: brightness(1.15); }
-    #videoContainer { position: relative; background: #000; width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; }
+    .btn:hover:not(:disabled) { filter: brightness(1.12); }
+    #videoContainer {
+      position: relative; background: #02040a; width: 100%;
+      aspect-ratio: 16/9; border-radius: 14px; overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
     @media(max-width:640px){ #videoContainer { aspect-ratio: 4/3; } }
     input[type="text"], input[type="email"], input[type="password"] {
-      background: #0f172a; border: 1px solid #334155; color: white;
-      border-radius: 8px; padding: 10px 14px; width: 100%; outline: none; font-size: 14px;
+      background: rgba(9, 14, 28, 0.9);
+      border: 1px solid rgba(51, 65, 85, 0.85);
+      color: #f8fafc;
+      border-radius: 10px; padding: 11px 14px; width: 100%; outline: none; font-size: 14px;
+      transition: border-color .2s, box-shadow .2s;
     }
-    input:focus { border-color: #3b82f6; }
-    .log-entry { font-size: 11px; font-family: monospace; padding: 2px 0; }
+    input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+    }
+    .log-entry { font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; padding: 2px 0; }
     #screenshotCanvas { display: none; }
-    .camera-btn { padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; touch-action: manipulation; }
+    .camera-btn { padding: 7px 12px; border-radius: 9px; font-size: 12px; font-weight: 600; touch-action: manipulation; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 999px; }
   </style>
 </head>
 <body>
 
 <!-- ══════════════════ LOGIN GATE ══════════════════ -->
-<div id="loginGate" class="fixed inset-0 z-[100] bg-[#060b14] flex items-center justify-center p-4">
-  <div class="glass rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl border border-slate-800">
-    <div class="flex flex-col items-center text-center mb-6">
-      <div class="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center mb-3 shadow-lg shadow-blue-600/30">
-        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+<div id="loginGate" class="fixed inset-0 z-[100] bg-[#050811]/95 backdrop-blur-md flex items-center justify-center p-4">
+  <div class="glass rounded-3xl p-7 sm:p-9 w-full max-w-md border border-slate-700/50">
+    <div class="flex flex-col items-center text-center mb-7">
+      <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-4 shadow-lg shadow-blue-600/30 ring-1 ring-white/20">
+        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
         </svg>
       </div>
-      <h2 class="text-xl font-bold text-white">CamGuard Login</h2>
-      <p class="text-xs text-slate-400 mt-1">Login karte hi camera apne aap connect ho jayega</p>
+      <h2 class="text-2xl font-bold tracking-tight text-white">CamGuard Viewer</h2>
+      <p class="text-xs text-slate-400 mt-1.5">Sign in to connect &amp; monitor your camera stream</p>
     </div>
 
-    <div id="loginError" class="hidden mb-4 p-3 rounded-lg bg-red-950/70 border border-red-800 text-red-300 text-xs text-center"></div>
+    <div id="loginError" class="hidden mb-4 p-3 rounded-xl bg-red-950/70 border border-red-800/80 text-red-300 text-xs text-center"></div>
 
     <form id="loginForm" class="space-y-4">
       <div>
-        <label class="text-xs text-slate-400 mb-1 block">Signaling Server URL</label>
+        <label class="text-xs font-medium text-slate-400 mb-1.5 block">Signaling Server URL</label>
         <input id="loginServerUrl" type="text" value="https://camera-app-backend-q7p5.onrender.com" placeholder="https://camera-app-backend-q7p5.onrender.com" required />
       </div>
       <div>
-        <label class="text-xs text-slate-400 mb-1 block">Email ID</label>
-        <input id="loginEmail" type="email" placeholder="asahu896214@gmail.com" required />
+        <label class="text-xs font-medium text-slate-400 mb-1.5 block">Email ID</label>
+        <input id="loginEmail" type="email" placeholder="sahuanil6266@gmail.com" autocomplete="email" required />
       </div>
       <div>
-        <label class="text-xs text-slate-400 mb-1 block">Password</label>
-        <input id="loginPassword" type="password" placeholder="Enter password" required />
+        <label class="text-xs font-medium text-slate-400 mb-1.5 block">Password</label>
+        <div class="relative">
+          <input id="loginPassword" type="password" placeholder="Enter password" autocomplete="current-password" class="pr-11" required />
+          <button type="button" id="btnTogglePwd" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-xs font-medium px-1" aria-label="Show or hide password">Show</button>
+        </div>
       </div>
-      <button id="btnLoginSubmit" type="submit" class="btn w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold text-sm mt-2">
-        🔐 Login & Connect
+      <button id="btnLoginSubmit" type="submit" class="btn w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3.5 rounded-xl font-semibold text-sm mt-2 shadow-lg shadow-blue-600/25">
+        🔐 Login &amp; Connect
       </button>
     </form>
   </div>
 </div>
 
 <!-- ══════════════════ MAIN APP ══════════════════ -->
-<div id="appShell" class="hidden">
+<div id="appShell" class="hidden min-h-screen flex flex-col">
 
-  <header class="glass sticky top-0 z-50 px-5 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800">
+  <header class="glass sticky top-0 z-50 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80">
     <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-600/25 ring-1 ring-white/15">
         <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
         </svg>
       </div>
       <div>
-        <h1 class="text-base font-bold text-white leading-tight">CamGuard Viewer</h1>
-        <p id="loggedInUserLabel" class="text-xs text-slate-400 leading-tight">Authenticated</p>
+        <div class="flex items-center gap-2">
+          <h1 class="text-base font-bold text-white tracking-tight leading-tight">CamGuard</h1>
+          <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30">Live</span>
+        </div>
+        <p id="loggedInUserLabel" class="text-xs text-slate-400 leading-tight mt-0.5">Authenticated</p>
       </div>
     </div>
 
-    <div class="flex items-center gap-2">
-      <div id="connBadge" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-red-950 text-red-400 border border-red-900 flex-shrink-0">
+    <div class="flex items-center gap-2.5">
+      <div id="connBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-red-950/90 text-red-400 border border-red-900 flex-shrink-0">
         <span class="w-2 h-2 rounded-full bg-red-500"></span>
         <span>Disconnected</span>
       </div>
-      <button id="btnLogout" class="btn px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 border border-slate-700">
+      <button id="btnLogout" class="btn px-3.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700/80">
         Logout
       </button>
     </div>
   </header>
 
-  <main class="max-w-6xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-5 mt-4">
+  <main class="max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1">
 
     <!-- Left: Live Video Player -->
-    <section class="lg:col-span-2 flex flex-col gap-4">
+    <section class="lg:col-span-8 flex flex-col gap-5">
       <div class="glass rounded-2xl overflow-hidden">
-        <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-slate-800">
-          <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center justify-between gap-2.5 px-4 py-3 border-b border-slate-800/80 bg-slate-900/35">
+          <div class="flex items-center gap-2.5">
             <span id="streamDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
             <span id="streamLabel" class="text-sm font-semibold text-white">Connecting to Camera...</span>
           </div>
-          <div class="flex items-center gap-2">
-            <button id="btnSwitchCamera" class="btn camera-btn bg-blue-600 text-white" disabled>🔄 Flip Camera</button>
-            <button id="btnMuteAudio" class="btn camera-btn bg-slate-700 text-white" disabled>🔊 Audio On</button>
-            <button id="btnFullscreen" class="btn camera-btn bg-slate-700 text-white">⛶ Fullscreen</button>
-            <button id="btnScreenshot" class="btn camera-btn bg-slate-700 text-white" disabled>📷 Screenshot</button>
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="btnSwitchCamera" class="btn camera-btn bg-blue-600/90 hover:bg-blue-500 text-white" disabled>🔄 Flip Camera</button>
+            <button id="btnMuteAudio" class="btn camera-btn bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700/70" disabled>🔊 Audio On</button>
+            <button id="btnFullscreen" class="btn camera-btn bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700/70">⛶ Fullscreen</button>
+            <button id="btnScreenshot" class="btn camera-btn bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700/70" disabled>📷 Snapshot</button>
           </div>
         </div>
 
-        <div id="videoContainer">
-          <video id="remoteVideo" autoplay playsinline muted></video>
-          <canvas id="screenshotCanvas"></canvas>
+        <div class="p-3 sm:p-4 bg-slate-950/40">
+          <div id="videoContainer">
+            <video id="remoteVideo" autoplay playsinline muted></video>
+            <canvas id="screenshotCanvas"></canvas>
 
-          <div id="videoPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 bg-black">
-            <svg class="w-16 h-16 mb-4 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-            </svg>
-            <p class="text-sm font-medium text-slate-300" id="placeholderText">Online camera dhoondh raha hai...</p>
-          </div>
+            <div id="videoPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-[#04070f] p-4 text-center">
+              <div class="w-16 h-16 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-center mb-3.5">
+                <svg class="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+              </div>
+              <p class="text-sm font-medium text-slate-300" id="placeholderText">Online camera dhoondh raha hai...</p>
+            </div>
 
-          <div id="liveBadge" class="absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-2 hidden">
-            <span class="w-2 h-2 rounded-full bg-white pulse"></span>
-            LIVE
-          </div>
+            <div id="liveBadge" class="absolute top-3 left-3 bg-red-600/95 backdrop-blur-sm text-white text-[11px] font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-lg hidden">
+              <span class="w-2 h-2 rounded-full bg-white pulse"></span>
+              LIVE
+            </div>
 
-          <div id="iceStateBadge" class="absolute top-3 right-3 text-xs bg-black/60 text-slate-300 px-2 py-1 rounded hidden">
-            ICE: <span id="iceStateText">new</span>
+            <div id="iceStateBadge" class="absolute top-3 right-3 text-[11px] font-mono bg-black/70 backdrop-blur-sm text-slate-200 px-2.5 py-1 rounded-lg border border-white/10 hidden">
+              ICE: <span id="iceStateText">new</span>
+            </div>
           </div>
         </div>
 
-        <div class="flex items-center justify-between px-4 py-2.5 border-t border-slate-800 bg-slate-900/40">
+        <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-slate-800/80 bg-slate-900/40">
           <div class="flex items-center gap-4 text-xs text-slate-400">
-            <span>Session: <span id="sessionIdLabel" class="font-mono text-white">—</span></span>
-            <span>ICE: <span id="iceState2" class="text-white font-mono">—</span></span>
+            <span>Session: <span id="sessionIdLabel" class="font-mono text-slate-200">—</span></span>
+            <span>ICE: <span id="iceState2" class="text-slate-200 font-mono">—</span></span>
           </div>
-          <button id="btnDisconnect" class="btn camera-btn bg-red-700 text-white hidden">✕ Disconnect</button>
+          <button id="btnDisconnect" class="btn camera-btn bg-red-600/90 hover:bg-red-500 text-white hidden">✕ Disconnect</button>
         </div>
       </div>
 
-      <div class="glass rounded-xl p-4">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-sm font-semibold text-white">Event Log</h3>
+      <div class="glass rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-2.5">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Event Log</h3>
           <button onclick="clearLog()" class="text-xs text-slate-400 hover:text-white transition">Clear</button>
         </div>
-        <div id="logEl" class="h-32 overflow-y-auto bg-slate-950/60 rounded-lg p-2 space-y-0.5 border border-slate-800/80"></div>
+        <div id="logEl" class="h-36 overflow-y-auto bg-slate-950/75 rounded-xl p-3 space-y-0.5 border border-slate-800/80"></div>
       </div>
     </section>
 
-    <!-- Right Sidebar: Devices -->
-    <aside class="flex flex-col gap-4">
+    <!-- Right Sidebar: Devices & Server -->
+    <aside class="lg:col-span-4 flex flex-col gap-5">
       <div class="glass rounded-2xl p-5">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-sm font-bold text-white">📷 Camera Devices</h3>
-          <button id="btnRefresh" class="text-xs text-blue-400 hover:text-blue-300 transition" disabled>Refresh</button>
+        <div class="flex items-center justify-between mb-3.5">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <span>📷</span> Camera Devices
+          </h3>
+          <button id="btnRefresh" class="text-xs font-semibold text-blue-400 hover:text-blue-300 transition" disabled>↻ Refresh</button>
         </div>
-        <div id="deviceList" class="space-y-2 min-h-16">
+        <div id="deviceList" class="space-y-2.5 min-h-16">
           <div class="text-xs text-slate-500 text-center py-4">Searching for online cameras...</div>
         </div>
       </div>
 
       <div class="glass rounded-2xl p-5">
-        <h3 class="text-xs font-bold text-slate-400 mb-2">Server</h3>
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2.5">Signaling Server</h3>
         <div class="flex gap-2">
           <input id="serverUrlInput" type="text" value="https://camera-app-backend-q7p5.onrender.com" class="text-xs" />
-          <button id="btnConnect" class="btn flex-shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg text-xs font-semibold">Reconnect</button>
+          <button id="btnConnect" class="btn flex-shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold">Reconnect</button>
         </div>
       </div>
     </aside>
   </main>
 </div>
 
+<script>
+  document.getElementById('btnTogglePwd')?.addEventListener('click', () => {
+    const pwd = document.getElementById('loginPassword');
+    const btn = document.getElementById('btnTogglePwd');
+    if (!pwd || !btn) return;
+    const isHidden = pwd.type === 'password';
+    pwd.type = isHidden ? 'text' : 'password';
+    btn.textContent = isHidden ? 'Hide' : 'Show';
+  });
+</script>
 <script src="app.js"></script>
 </body>
 </html>
