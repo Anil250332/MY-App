@@ -18,6 +18,7 @@ let socket          = null;
 let peerConnection  = null;
 let currentSession  = null;
 let pendingConnectCameraId = null;
+let isFetchingDevices = false;
 let iceDisconnectTimer = null;
 let audioEnabled    = true;
 let isStreaming     = false;
@@ -103,12 +104,16 @@ function showDashboard() {
 }
 
 function logout() {
-  if (currentSession && socket && socket.connected) {
-    socket.emit('end-stream', {
-      sessionId: currentSession.sessionId,
-      targetDeviceId: currentSession.cameraDeviceId
-    });
+  if (socket && socket.connected) {
+    if (currentSession) {
+      socket.emit('end-stream', {
+        sessionId: currentSession.sessionId,
+        targetDeviceId: currentSession.cameraDeviceId
+      });
+    }
+    socket.emit('viewer-logout', { viewerDeviceId });
   }
+  pendingConnectCameraId = null;
   authToken = '';
   authEmail = '';
   localStorage.removeItem(STORAGE_TOKEN_KEY);
@@ -117,11 +122,14 @@ function logout() {
 }
 
 window.addEventListener('beforeunload', () => {
-  if (currentSession && socket && socket.connected) {
-    socket.emit('end-stream', {
-      sessionId: currentSession.sessionId,
-      targetDeviceId: currentSession.cameraDeviceId
-    });
+  if (socket && socket.connected) {
+    if (currentSession) {
+      socket.emit('end-stream', {
+        sessionId: currentSession.sessionId,
+        targetDeviceId: currentSession.cameraDeviceId
+      });
+    }
+    socket.emit('viewer-logout', { viewerDeviceId });
   }
 });
 
@@ -421,7 +429,7 @@ async function initWebRtc(targetDeviceId, sessionId, isInitiator = true) {
     }
   };
 
-  peerConnection.oniceconnectionstatechange = () => {
+  peerConnection.oniceconnectionstatechange = async () => {
     if (!peerConnection) return;
     const st = peerConnection.iceConnectionState;
     updateIceState(st);
@@ -433,31 +441,18 @@ async function initWebRtc(targetDeviceId, sessionId, isInitiator = true) {
       setStreamingUI(true);
       remoteVideo.muted = !audioEnabled;
     } else if (st === 'disconnected') {
-      // Brief ICE interruption when phone changes network / screen turns off — wait up to 8s to recover
-      if (!iceDisconnectTimer) {
-        iceDisconnectTimer = setTimeout(() => {
-          iceDisconnectTimer = null;
-          if (peerConnection && peerConnection.iceConnectionState === 'disconnected') {
-            log('ICE connection lost — ending session', 'warn');
-            if (currentSession && socket && socket.connected) {
-              socket.emit('end-stream', {
-                sessionId: currentSession.sessionId,
-                targetDeviceId: currentSession.cameraDeviceId
-              });
-            }
-            teardownPeer();
-          }
-        }, 8000);
+      log('Network interrupted — waiting for ICE recovery...', 'warn');
+    } else if (st === 'failed') {
+      log('ICE connection failed — renegotiating stream automatically...', 'warn');
+      try {
+        const offer = await peerConnection.createOffer({ iceRestart: true });
+        await peerConnection.setLocalDescription(offer);
+        if (socket && socket.connected) {
+          socket.emit('offer', { targetDeviceId, sessionId, sdp: offer });
+        }
+      } catch (e) {
+        log('ICE restart error: ' + e.message, 'warn');
       }
-    } else if (st === 'failed' || st === 'closed') {
-      if (iceDisconnectTimer) { clearTimeout(iceDisconnectTimer); iceDisconnectTimer = null; }
-      if (currentSession && socket && socket.connected) {
-        socket.emit('end-stream', {
-          sessionId: currentSession.sessionId,
-          targetDeviceId: currentSession.cameraDeviceId
-        });
-      }
-      teardownPeer();
     }
   };
 
@@ -511,6 +506,9 @@ function teardownPeer(resetUI = true) {
 // ── Request Stream ─────────────────────────────
 function requestStream(cameraDeviceId) {
   if (!socket || !socket.connected) return;
+  if (pendingConnectCameraId === cameraDeviceId) {
+    return; // Already negotiating this camera
+  }
   if (currentSession) {
     if (currentSession.cameraDeviceId === cameraDeviceId && isStreaming) {
       log('Already streaming this camera.', 'info');
@@ -537,7 +535,8 @@ function requestStream(cameraDeviceId) {
 // ── Fetch Devices & Auto-Connect ───────────────
 async function fetchDevices(autoConnect = false) {
   const url = serverUrlInput.value.trim().replace(/\/+$/, '');
-  if (!url || !authToken) return;
+  if (!url || !authToken || isFetchingDevices) return;
+  isFetchingDevices = true;
   try {
     const res = await fetch(`${url}/api/devices/cameras`, {
       headers: { Authorization: `Bearer ${authToken}` }
@@ -550,7 +549,7 @@ async function fetchDevices(autoConnect = false) {
     const list = data.data || [];
     renderDevices(list);
 
-    if (autoConnect && !isStreaming) {
+    if (autoConnect && !isStreaming && !currentSession && !pendingConnectCameraId) {
       const onlineItem = list.find(item => {
         const d = item.device || item;
         return d.status === 'online' || d.status === 'streaming';
@@ -564,6 +563,8 @@ async function fetchDevices(autoConnect = false) {
     }
   } catch (err) {
     deviceListEl.innerHTML = `<div class="text-xs text-rose-400">Devices fetch failed: ${err.message}</div>`;
+  } finally {
+    isFetchingDevices = false;
   }
 }
 
