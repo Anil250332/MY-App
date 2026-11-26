@@ -17,6 +17,7 @@ let authEmail       = localStorage.getItem(STORAGE_EMAIL_KEY) || '';
 let socket          = null;
 let peerConnection  = null;
 let currentSession  = null;
+let pendingConnectCameraId = null;
 let iceDisconnectTimer = null;
 let audioEnabled    = true;
 let isStreaming     = false;
@@ -301,6 +302,7 @@ async function connectSignaling() {
 
   socket.on('disconnect', () => {
     log('Disconnected from signaling server', 'warn');
+    pendingConnectCameraId = null;
     setConnected(false);
     if (isStreaming) teardownPeer();
   });
@@ -313,6 +315,7 @@ async function connectSignaling() {
 
   socket.on('stream-approved', async data => {
     log(`Stream connected ✓ Camera: ${data.cameraDeviceId}`, 'success');
+    pendingConnectCameraId = null;
     if (data.iceServers && data.iceServers.length) iceServersConfig = data.iceServers;
     currentSession = { sessionId: data.sessionId, cameraDeviceId: data.cameraDeviceId };
     sessionIdLabel.textContent = data.sessionId.substring(0, 12) + '...';
@@ -322,6 +325,7 @@ async function connectSignaling() {
   socket.on('stream-rejected', data => {
     log(`Stream declined — ${data.message}`, 'error');
     placeholderText.textContent = data.message || 'Camera access declined on phone.';
+    pendingConnectCameraId = null;
     currentSession = null;
     setStreamingUI(false);
   });
@@ -329,6 +333,7 @@ async function connectSignaling() {
   socket.on('stream-error', data => {
     log(`Error: ${data.message}`, 'error');
     placeholderText.textContent = data.message;
+    pendingConnectCameraId = null;
     if (data.message && data.message.toLowerCase().includes('unauthorized')) {
       logout();
     }
@@ -371,7 +376,7 @@ async function connectSignaling() {
   });
 
   socket.on('devices-updated', () => {
-    fetchDevices(!isStreaming && !currentSession);
+    fetchDevices(!isStreaming && !currentSession && !pendingConnectCameraId);
   });
 }
 
@@ -477,6 +482,7 @@ function teardownPeer(resetUI = true) {
     updateIceState('—');
     sessionIdLabel.textContent = '—';
     placeholderText.textContent = 'Camera standby par hai — Refresh ya Connect dabaye';
+    pendingConnectCameraId = null;
     currentSession = null;
   }
 }
@@ -495,6 +501,7 @@ function requestStream(cameraDeviceId) {
     });
     teardownPeer();
   }
+  pendingConnectCameraId = cameraDeviceId;
   log(`Connecting to camera: ${cameraDeviceId}`, 'info');
   placeholderText.textContent = 'Camera connect ho raha hai...';
   videoPlaceholder.classList.remove('hidden');
