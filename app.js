@@ -289,10 +289,31 @@ async function connectSignaling() {
       deviceType: 'viewer',
       token: authToken
     });
+
+    // Sync new socket ID into shared room via POST route so old sockets are cleaned up and mobile cameras re-sync
+    fetch(`${url}/api/devices/room/join`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        deviceId: viewerDeviceId,
+        deviceName: 'CamGuard Web Viewer',
+        deviceType: 'viewer',
+        socketId: socket.id,
+        room: 'camguard_room'
+      })
+    }).catch(() => {});
+  });
+
+  socket.on('socket-replaced', () => {
+    log('Viewer connected from a newer window — replacing old socket', 'warn');
+    if (socket) socket.io.opts.reconnection = false;
   });
 
   socket.on('registered', async data => {
-    log('Authenticated & registered on signaling server', 'success');
+    log(`Authenticated & joined room ${data.room || 'camguard_room'}`, 'success');
     if (data.iceServers && data.iceServers.length) {
       iceServersConfig = data.iceServers;
     }
