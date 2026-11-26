@@ -86,37 +86,37 @@
 <body>
 
 <!-- ══════════════════ LOGIN GATE ══════════════════ -->
-<div id="loginGate" class="fixed inset-0 z-[100] bg-[#050811]/95 backdrop-blur-md flex items-center justify-center p-4">
-  <div class="glass rounded-3xl p-7 sm:p-9 w-full max-w-md border border-slate-700/50">
-    <div class="flex flex-col items-center text-center mb-7">
-      <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-4 shadow-lg shadow-blue-600/30 ring-1 ring-white/20">
-        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<div id="loginGate" class="fixed inset-0 z-[100] bg-[#050811]/95 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+  <div class="glass rounded-2xl sm:rounded-3xl p-5 sm:p-8 w-full max-w-md border border-slate-700/50 my-auto">
+    <div class="flex flex-col items-center text-center mb-5 sm:mb-7">
+      <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-3 sm:mb-4 shadow-lg shadow-blue-600/30 ring-1 ring-white/20">
+        <svg class="w-6 h-6 sm:w-7 sm:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
         </svg>
       </div>
-      <h2 class="text-2xl font-bold tracking-tight text-white">CamGuard Viewer</h2>
-      <p class="text-xs text-slate-400 mt-1.5">Sign in to connect &amp; monitor your camera stream</p>
+      <h2 class="text-xl sm:text-2xl font-bold tracking-tight text-white whitespace-nowrap">CamGuard Viewer</h2>
+      <p class="text-xs text-slate-400 mt-1">Sign in to connect &amp; monitor your camera</p>
     </div>
 
     <div id="loginError" class="hidden mb-4 p-3 rounded-xl bg-red-950/70 border border-red-800/80 text-red-300 text-xs text-center"></div>
 
-    <form id="loginForm" class="space-y-4">
+    <form id="loginForm" class="space-y-3.5 sm:space-y-4">
       <div>
-        <label class="text-xs font-medium text-slate-400 mb-1.5 block">Signaling Server URL</label>
-        <input id="loginServerUrl" type="text" value="https://camera-app-backend-q7p5.onrender.com" placeholder="https://camera-app-backend-q7p5.onrender.com" required />
+        <label class="text-xs font-medium text-slate-400 mb-1 block">Signaling Server URL</label>
+        <input id="loginServerUrl" type="text" value="https://camera-app-backend-q7p5.onrender.com" placeholder="https://your-server.example.com" class="text-xs sm:text-sm" required />
       </div>
       <div>
-        <label class="text-xs font-medium text-slate-400 mb-1.5 block">Email ID</label>
-        <input id="loginEmail" type="email" placeholder="sahuanil6266@gmail.com" autocomplete="email" required />
+        <label class="text-xs font-medium text-slate-400 mb-1 block">Email ID</label>
+        <input id="loginEmail" type="email" placeholder="you@example.com" autocomplete="email" required />
       </div>
       <div>
-        <label class="text-xs font-medium text-slate-400 mb-1.5 block">Password</label>
+        <label class="text-xs font-medium text-slate-400 mb-1 block">Password</label>
         <div class="relative">
-          <input id="loginPassword" type="password" placeholder="Enter password" autocomplete="current-password" class="pr-14" required />
-          <button type="button" id="btnTogglePwd" class="btn absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 bg-slate-800/80 rounded-lg text-xs font-medium px-2 py-1" aria-label="Show or hide password">Show</button>
+          <input id="loginPassword" type="password" placeholder="Enter password" autocomplete="current-password" class="pr-16" required />
+          <button type="button" id="btnTogglePwd" class="btn absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 bg-slate-800/90 rounded-lg text-xs font-medium px-2.5 py-1" aria-label="Show or hide password">Show</button>
         </div>
       </div>
-      <button id="btnLoginSubmit" type="submit" class="btn w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3.5 rounded-xl font-semibold text-sm mt-2 shadow-lg shadow-blue-600/25">
+      <button id="btnLoginSubmit" type="submit" class="btn w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 sm:py-3.5 rounded-xl font-semibold text-sm mt-2 shadow-lg shadow-blue-600/25">
         🔐 Login &amp; Connect
       </button>
     </form>
