@@ -17,6 +17,7 @@ let authEmail       = localStorage.getItem(STORAGE_EMAIL_KEY) || '';
 let socket          = null;
 let peerConnection  = null;
 let currentSession  = null;
+let iceDisconnectTimer = null;
 let audioEnabled    = true;
 let isStreaming     = false;
 
@@ -320,7 +321,8 @@ async function connectSignaling() {
 
   socket.on('stream-rejected', data => {
     log(`Stream declined — ${data.message}`, 'error');
-    placeholderText.textContent = 'Camera access declined on phone.';
+    placeholderText.textContent = data.message || 'Camera access declined on phone.';
+    currentSession = null;
     setStreamingUI(false);
   });
 
@@ -369,7 +371,7 @@ async function connectSignaling() {
   });
 
   socket.on('devices-updated', () => {
-    fetchDevices(!isStreaming);
+    fetchDevices(!isStreaming && !currentSession);
   });
 }
 
@@ -394,16 +396,41 @@ async function initWebRtc(targetDeviceId, sessionId, isInitiator = true) {
   };
 
   peerConnection.oniceconnectionstatechange = () => {
+    if (!peerConnection) return;
     const st = peerConnection.iceConnectionState;
     updateIceState(st);
     log(`ICE state → ${st}`, 'stream');
 
-    if (st === 'connected') {
+    if (st === 'connected' || st === 'completed') {
+      if (iceDisconnectTimer) { clearTimeout(iceDisconnectTimer); iceDisconnectTimer = null; }
       log('🎉 WebRTC Connected! Live stream is active.', 'success');
       setStreamingUI(true);
       remoteVideo.muted = !audioEnabled;
-    }
-    if (st === 'disconnected' || st === 'failed' || st === 'closed') {
+    } else if (st === 'disconnected') {
+      // Brief ICE interruption when phone changes network / screen turns off — wait up to 8s to recover
+      if (!iceDisconnectTimer) {
+        iceDisconnectTimer = setTimeout(() => {
+          iceDisconnectTimer = null;
+          if (peerConnection && peerConnection.iceConnectionState === 'disconnected') {
+            log('ICE connection lost — ending session', 'warn');
+            if (currentSession && socket && socket.connected) {
+              socket.emit('end-stream', {
+                sessionId: currentSession.sessionId,
+                targetDeviceId: currentSession.cameraDeviceId
+              });
+            }
+            teardownPeer();
+          }
+        }, 8000);
+      }
+    } else if (st === 'failed' || st === 'closed') {
+      if (iceDisconnectTimer) { clearTimeout(iceDisconnectTimer); iceDisconnectTimer = null; }
+      if (currentSession && socket && socket.connected) {
+        socket.emit('end-stream', {
+          sessionId: currentSession.sessionId,
+          targetDeviceId: currentSession.cameraDeviceId
+        });
+      }
       teardownPeer();
     }
   };
@@ -430,6 +457,10 @@ async function initWebRtc(targetDeviceId, sessionId, isInitiator = true) {
 }
 
 function teardownPeer(resetUI = true) {
+  if (iceDisconnectTimer) {
+    clearTimeout(iceDisconnectTimer);
+    iceDisconnectTimer = null;
+  }
   if (peerConnection) {
     peerConnection.onicecandidate = null;
     peerConnection.oniceconnectionstatechange = null;
@@ -453,7 +484,11 @@ function teardownPeer(resetUI = true) {
 // ── Request Stream ─────────────────────────────
 function requestStream(cameraDeviceId) {
   if (!socket || !socket.connected) return;
-  if (currentSession && currentSession.cameraDeviceId !== cameraDeviceId) {
+  if (currentSession) {
+    if (currentSession.cameraDeviceId === cameraDeviceId && isStreaming) {
+      log('Already streaming this camera.', 'info');
+      return;
+    }
     socket.emit('end-stream', {
       sessionId: currentSession.sessionId,
       targetDeviceId: currentSession.cameraDeviceId
