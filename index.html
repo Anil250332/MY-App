@@ -188,22 +188,22 @@
         </button>
       </div>
 
-      <!-- Live Camera Stream: 80vh on Mobile, fills remaining 100vh on Desktop -->
-      <div class="glass rounded-2xl overflow-hidden h-[80vh] lg:h-auto lg:flex-1 flex flex-col min-h-0">
-        <div class="flex flex-wrap items-center justify-between gap-2 px-3.5 sm:px-4 py-2.5 border-b border-slate-800/80 bg-slate-900/35 flex-shrink-0">
+      <!-- Live Camera Stream: 80vh+20px on Mobile, fills remaining 100vh on Desktop -->
+      <div class="glass rounded-2xl overflow-hidden h-[calc(80vh+20px)] lg:h-auto lg:flex-1 flex flex-col min-h-0">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-3 sm:px-4 py-2.5 border-b border-slate-800/80 bg-slate-900/35 flex-shrink-0">
           <div class="flex items-center gap-2.5">
             <span id="streamDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
             <span id="streamLabel" class="text-sm font-semibold text-white">Connecting to Camera...</span>
           </div>
-          <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <button id="btnSwitchCamera" class="btn camera-btn bg-blue-600/90 hover:bg-blue-500 text-white" disabled>🔄 Flip Camera</button>
-            <button id="btnMuteAudio" class="btn camera-btn bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700/70" disabled>🔊 Audio On</button>
-            <button id="btnFullscreen" class="btn camera-btn bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700/70">⛶ Fullscreen</button>
-            <button id="btnScreenshot" class="btn camera-btn bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700/70" disabled>📷 Snapshot</button>
+          <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
+            <button id="btnSwitchCamera" class="btn camera-btn w-full sm:w-auto text-center bg-blue-600/90 hover:bg-blue-500 text-white" disabled>🔄 Flip Camera</button>
+            <button id="btnMuteAudio" class="btn camera-btn w-full sm:w-auto text-center bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700/70" disabled>🔊 Audio On</button>
+            <button id="btnFullscreen" class="btn camera-btn w-full sm:w-auto text-center bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700/70">⛶ Fullscreen</button>
+            <button id="btnScreenshot" class="btn camera-btn w-full sm:w-auto text-center bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700/70" disabled>📷 Snapshot</button>
           </div>
         </div>
 
-        <div class="p-2.5 sm:p-3 bg-slate-950/40 flex-1 min-h-0 flex items-center justify-center">
+        <div class="p-1.5 sm:p-3 bg-slate-950/40 flex-1 min-h-0 flex items-center justify-center">
           <div id="videoContainer">
             <video id="remoteVideo" autoplay playsinline muted></video>
             <canvas id="screenshotCanvas"></canvas>
