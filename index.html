@@ -9,29 +9,34 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%232563eb'/%3E%3Cpath d='M68 42l14-9a2 2 0 013 1.7v30.6a2 2 0 01-3 1.7l-14-9V42zM20 32h40a6 6 0 016 6v24a6 6 0 01-6 6H20a6 6 0 01-6-6V38a6 6 0 016-6z' fill='white'/%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
+  <link rel="preconnect" href="https://camera-app-backend-q7p5.onrender.com" crossorigin />
+  <link rel="dns-prefetch" href="https://camera-app-backend-q7p5.onrender.com" />
   <title>CamGuard Viewer</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.min.js" crossorigin="anonymous"></script>
   <style>
-    * { box-sizing: border-box; }
-    body { background: #060b14; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; min-height: 100vh; }
+    * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; min-height: 100vh; background: #060b14; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     #remoteVideo { width: 100%; height: 100%; object-fit: contain; background: #000; }
     .glass { background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(16px); }
     .pulse { animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-    .btn { cursor: pointer; border: none; outline: none; transition: all .2s; }
-    .btn:disabled { opacity:.4; cursor:default; }
+    .btn { cursor: pointer; border: none; outline: none; transition: transform .1s, filter .2s; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity:.4; cursor:default; transform: none; }
     .btn:hover:not(:disabled) { filter: brightness(1.15); }
     #videoContainer { position: relative; background: #000; width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; }
     @media(max-width:640px){ #videoContainer { aspect-ratio: 4/3; } }
     input[type="text"], input[type="email"], input[type="password"] {
       background: #0f172a; border: 1px solid #334155; color: white;
-      border-radius: 8px; padding: 10px 14px; width: 100%; outline: none;
+      border-radius: 8px; padding: 10px 14px; width: 100%; outline: none; font-size: 14px;
     }
     input:focus { border-color: #3b82f6; }
     .log-entry { font-size: 11px; font-family: monospace; padding: 2px 0; }
     #screenshotCanvas { display: none; }
-    .camera-btn { padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; }
+    .camera-btn { padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; touch-action: manipulation; }
   </style>
 </head>
 <body>

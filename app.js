@@ -128,6 +128,9 @@ async function verifyExistingSession(serverUrl) {
     showLoginGate();
     return;
   }
+  // Instant Optimistic Render: Show dashboard immediately so mobile opens with 0ms lag!
+  showDashboard();
+
   try {
     const res = await fetch(`${serverUrl}/api/auth/me`, {
       headers: { Authorization: `Bearer ${authToken}` }
@@ -135,12 +138,13 @@ async function verifyExistingSession(serverUrl) {
     if (res.ok) {
       const json = await res.json();
       authEmail = json.data?.email || authEmail;
-      showDashboard();
-    } else {
+      loggedInUserLbl.textContent = `Logged in: ${authEmail}`;
+    } else if (res.status === 401) {
       logout();
     }
-  } catch {
-    showLoginGate();
+  } catch (err) {
+    // If backend is sleeping / Render cold start, socket will automatically reconnect once awake
+    log('Server waking up or slow network: ' + err.message, 'warn');
   }
 }
 
@@ -258,12 +262,22 @@ async function connectSignaling() {
   if (socket) { socket.disconnect(); socket = null; }
   log(`Connecting to signaling server: ${url}...`);
 
+  const wakeTimer = setTimeout(() => {
+    if (!socket || !socket.connected) {
+      placeholderText.textContent = 'Server wake up ho raha hai (Render free tier), kripya thoda intezar karein...';
+      log('Signaling server taking longer to connect (Render waking up)...', 'warn');
+    }
+  }, 3000);
+
   socket = io(url, {
     transports: ['websocket', 'polling'],
-    auth: { token: authToken }
+    upgrade: true,
+    auth: { token: authToken },
+    timeout: 15000
   });
 
   socket.on('connect', () => {
+    clearTimeout(wakeTimer);
     log(`Connected ✓ (Socket: ${socket.id})`, 'success');
     setConnected(true);
 
@@ -624,4 +638,12 @@ window.addEventListener('load', () => {
   loginServerUrl.value = savedServer;
   serverUrlInput.value = savedServer;
   verifyExistingSession(savedServer);
+
+  // Keep backend warm while dashboard is active so Render free tier never sleeps during active usage
+  setInterval(() => {
+    const sUrl = serverUrlInput.value.trim().replace(/\/+$/, '');
+    if (sUrl && document.visibilityState === 'visible') {
+      fetch(`${sUrl}/health`).catch(() => {});
+    }
+  }, 4 * 60 * 1000);
 });
